@@ -1,62 +1,79 @@
-from flask import Flask, request, jsonify, send_file, render_template, after_this_request
-from flask_cors import CORS
-from TTS.api import TTS
 import os
-import uuid
+import torch
+from flask import Flask, request, jsonify, send_file, after_this_request
+from flask_cors import CORS
+from scipy.io.wavfile import write
 from tempfile import gettempdir
+import uuid
+from fairseq.models.text_to_speech import VitsModel
 
 app = Flask(__name__)
-CORS(app)  # Allow cross-origin requests
+CORS(app)
 
-# Initialize using local model paths
-tts = TTS(
-    model_path="bam/G_100000.pth",
-    config_path="bam/config.json"
-).to("cpu")
+# Load Fairseq VITS Model
+model_dir = "bam"  # Replace with the directory containing your model files
+vocab_file = os.path.join(model_dir, "vocab.txt")
+config_file = os.path.join(model_dir, "config.json")
+checkpoint_file = os.path.join(model_dir, "G_100000.pth")
+
+assert os.path.isfile(config_file), f"{config_file} not found"
+assert os.path.isfile(checkpoint_file), f"{checkpoint_file} not found"
+
+print("Loading VITS model...")
+vits_model = VitsModel.from_pretrained(
+    model_dir,
+    checkpoint_file=checkpoint_file,
+    cfg_path=config_file,
+    data_name_or_path=model_dir
+)
+vits_model.to("cpu")  # Change to "cuda" if you have GPU support
+vits_model.eval()
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    return "Welcome to the VITS TTS API!"
 
 @app.route('/generate-audio', methods=['POST'])
 def generate_audio():
     try:
-        # Get JSON data from request
+        # Parse request data
         data = request.get_json()
         text = data.get('title', '')
 
-        # Validate and sanitize input text
+        # Validate input
         if not text.strip():
-            return jsonify({"error": "No text provided or text is empty"}), 400
-        sanitized_text = text.replace('.', '').strip()
+            return jsonify({"error": "No text provided"}), 400
 
-        # Generate a unique file name using UUID in the system's temp directory
-        temp_dir = gettempdir()  # Use temporary directory for portability
-        if not os.path.exists(temp_dir):
-            os.makedirs(temp_dir)  # Ensure the temp directory exists
+        # Preprocess text (if required by the model)
+        preprocessed_text = vits_model.preprocess_text(text)
+        tokens = vits_model.encode_text(preprocessed_text)
+
+        # Generate audio
+        with torch.no_grad():
+            audio = vits_model.generate(tokens)
+
+        # Save audio to a temporary file
+        temp_dir = gettempdir()
         unique_id = uuid.uuid4()
-        output_audio_file_path = os.path.join(temp_dir, f"output_{unique_id}.wav")
+        output_audio_file = os.path.join(temp_dir, f"output_{unique_id}.wav")
+        write(output_audio_file, vits_model.sampling_rate, audio.numpy())
 
-        # Generate the audio file
-        tts.tts_to_file(sanitized_text, file_path=output_audio_file_path)
-
-        # Schedule file deletion after the response is sent
+        # Schedule file deletion after response
         @after_this_request
-        def remove_file(response):
+        def cleanup(response):
             try:
-                if os.path.exists(output_audio_file_path):
-                    os.remove(output_audio_file_path)
+                if os.path.exists(output_audio_file):
+                    os.remove(output_audio_file)
             except Exception as e:
-                print(f"Error cleaning up file: {e}")
+                print(f"Failed to delete temporary file: {e}")
             return response
 
-        # Serve the file as a response
-        return send_file(output_audio_file_path, as_attachment=True, download_name="output.wav")
+        # Return audio file
+        return send_file(output_audio_file, as_attachment=True, download_name="output.wav")
+
     except Exception as e:
-        # Log the error and return a JSON response
-        print(f"Error during file generation or serving: {e}")
+        print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
-if __name__ == "__main__":
-    # Use host 0.0.0.0 for accessibility in containerized environments
+if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8080)
