@@ -8,8 +8,11 @@ from tempfile import gettempdir
 app = Flask(__name__)
 CORS(app)  # Allow cross-origin requests
 
-# Initialize TTS model
-tts = TTS(model_name="tts_models/bam/fairseq/vits").to("cpu")
+# Initialize using local model paths
+tts = TTS(
+    model_path="bam/G_100000.pth",
+    config_path="bam/config.json"
+).to("cpu")
 
 @app.route('/')
 def home():
