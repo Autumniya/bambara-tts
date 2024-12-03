@@ -1,32 +1,42 @@
 import os
-import torch
+import requests
+import uuid
+from tempfile import gettempdir
 from flask import Flask, request, jsonify, send_file, after_this_request
 from flask_cors import CORS
 from scipy.io.wavfile import write
-from tempfile import gettempdir
-import uuid
 from fairseq.models.text_to_speech import VitsModel
 
 app = Flask(__name__)
-CORS(app)
+CORS(app)  # Allow cross-origin requests
 
-# Load Fairseq VITS Model
-model_dir = "bam"  # Replace with the directory containing your model files
-vocab_file = os.path.join(model_dir, "vocab.txt")
-config_file = os.path.join(model_dir, "config.json")
-checkpoint_file = os.path.join(model_dir, "G_100000.pth")
+# Define model paths and URL
+model_dir = "bam"
+model_path = os.path.join(model_dir, "G_100000.pth")
+config_path = os.path.join(model_dir, "config.json")
+model_url = "https://firebasestorage.googleapis.com/v0/b/donniya.appspot.com/o/G_100000.pth?alt=media&token=fa232852-a45a-4b96-8083-e9333e039e7b"  # Replace with your URL
 
-assert os.path.isfile(config_file), f"{config_file} not found"
-assert os.path.isfile(checkpoint_file), f"{checkpoint_file} not found"
+# Ensure model directory exists
+os.makedirs(model_dir, exist_ok=True)
 
-print("Loading VITS model...")
+# Download the model if it doesn't exist locally
+if not os.path.exists(model_path):
+    print("Downloading model weights...")
+    response = requests.get(model_url, stream=True)
+    response.raise_for_status()
+    with open(model_path, "wb") as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
+    print(f"Model downloaded and saved to {model_path}")
+
+# Load VITS model
 vits_model = VitsModel.from_pretrained(
     model_dir,
-    checkpoint_file=checkpoint_file,
-    cfg_path=config_file,
+    checkpoint_file=model_path,
+    cfg_path=config_path,
     data_name_or_path=model_dir
 )
-vits_model.to("cpu")  # Change to "cuda" if you have GPU support
+vits_model.to("cpu")  # Change to "cuda" if GPU is available
 vits_model.eval()
 
 @app.route('/')
@@ -44,7 +54,7 @@ def generate_audio():
         if not text.strip():
             return jsonify({"error": "No text provided"}), 400
 
-        # Preprocess text (if required by the model)
+        # Preprocess text for the VITS model
         preprocessed_text = vits_model.preprocess_text(text)
         tokens = vits_model.encode_text(preprocessed_text)
 
@@ -68,7 +78,7 @@ def generate_audio():
                 print(f"Failed to delete temporary file: {e}")
             return response
 
-        # Return audio file
+        # Return the audio file
         return send_file(output_audio_file, as_attachment=True, download_name="output.wav")
 
     except Exception as e:
