@@ -66,7 +66,7 @@ def generate_audio():
                 app.logger.error(f"Error deleting temp file: {e}")
             return response
 
-        return send_file(output_audio_file_path, as_attachment=True, download_name="output.wav")
+        return send_file(output_audio_file_path, mimetype="audio/wav", as_attachment=True, download_name="output.wav")
 
     except Exception as e:
         app.logger.error(f"Error processing request: {e}")
