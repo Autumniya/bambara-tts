@@ -6,7 +6,7 @@ import uuid
 from tempfile import gettempdir
 from celery_worker import generate_audio_task
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="templates")
 CORS(app)  # Allow cross-origin requests
 
 # Initialize TTS model
