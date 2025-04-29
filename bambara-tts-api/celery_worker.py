@@ -4,7 +4,7 @@ import os
 import uuid
 from tempfile import gettempdir
 
-celery_app = Celery("tts_tasks", broker="pyamqp://guest@rabbitmq//")
+celery_app = Celery("tts_tasks", broker="amqp://guest:guest@rabbitmq:5672/")
 
 # Load model only once for the worker
 tts_model = TTS(model_name="tts_models/bam/fairseq/vits").to("cpu")
