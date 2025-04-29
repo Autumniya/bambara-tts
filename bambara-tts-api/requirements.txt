@@ -14,7 +14,7 @@ torchaudio==2.7.0+cpu
 --extra-index-url https://download.pytorch.org/whl/cpu
 
 # TTS dependencies
-numpy==2.2.5
+numpy==1.22.0
 llvmlite==0.44.0
 scipy==1.15.2
 soundfile>=0.13.1
