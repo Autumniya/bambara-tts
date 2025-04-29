@@ -20,6 +20,8 @@ mutagen==1.47.0
 # deps for examples
 flask>=2.0.1
 flask-cors
+requests==2.31.0
+TTS==0.19.1
 # deps for inference
 pysbd>=0.3.4
 # deps for notebooks
