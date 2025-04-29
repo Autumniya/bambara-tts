@@ -19,6 +19,7 @@ packaging>=23.1
 mutagen==1.47.0
 # deps for examples
 flask>=2.0.1
+flask-cors
 # deps for inference
 pysbd>=0.3.4
 # deps for notebooks
