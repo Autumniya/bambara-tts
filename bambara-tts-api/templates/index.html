@@ -95,14 +95,32 @@
         }
 
         // Create an audio element to play the generated audio
-        const blob = await response.blob();
-        const audioUrl = URL.createObjectURL(blob);
+        const { task_id } = await response.json();
+        // Polling the status every 2s
+    const pollInterval = setInterval(async () => {
+      const statusRes = await fetch(`https://donniyabamtts-production.up.railway.app/check-status/${task_id}`);
+      if (!statusRes.ok) return;
 
-        const audio = document.createElement("audio");
-        audio.controls = true;
-        audio.src = audioUrl;
-
-        audioContainer.appendChild(audio);
+      if (statusRes.status === 200 || statusRes.status === 202) {
+        const contentType = statusRes.headers.get("Content-Type");
+        
+        if (contentType === "audio/wav") {
+          clearInterval(pollInterval);
+          const blob = await statusRes.blob();
+          const audioUrl = URL.createObjectURL(blob);
+          const audio = document.createElement("audio");
+          audio.controls = true;
+          audio.src = audioUrl;
+          audioContainer.appendChild(audio);
+        } else {
+          const json = await statusRes.json();
+          if (json.status === "failed") {
+            clearInterval(pollInterval);
+            audioContainer.innerHTML = `<p style="color: red;">Failed: ${json.error}</p>`;
+          }
+        }
+      }
+    }, 2000);
       } catch (error) {
         console.error("Error:", error);
         audioContainer.innerHTML = `<p style="color: red;">Failed to generate audio: ${error.message}</p>`;
