@@ -14,6 +14,7 @@ COPY . /app
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
+ENV CELERY_BROKER_URL=pyamqp://guest@rabbitmq//
 
 # Expose port
 EXPOSE 8080
