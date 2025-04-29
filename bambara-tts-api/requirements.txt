@@ -1,19 +1,11 @@
-# Core backend
 Flask==3.1.0
 gunicorn==23.0.0
 flask-cors==5.0.1
 requests==2.32.3
 werkzeug==3.1.3
-
-# Coqui TTS engine
 TTS==0.22.0
-
-# PyTorch and audio
-torch==2.7.0+cpu
-torchaudio==2.7.0+cpu
---extra-index-url https://download.pytorch.org/whl/cpu
-
-# TTS dependencies
+torch==2.7.0
+torchaudio==2.7.0
 numpy==1.22.0
 llvmlite==0.44.0
 scipy==1.15.2
@@ -33,7 +25,6 @@ pysbd==0.3.4
 pandas==2.2.3
 matplotlib==3.10.1
 transformers==4.51.3
-
-# Coqui ecosystem
 trainer==0.0.36
 coqpit==0.0.17
+bangla==0.0.5
