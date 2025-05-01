@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify, send_file, render_template, after_this_request
 from flask_cors import CORS
-from TTS.api import TTS
 import os
 import uuid
 from tempfile import gettempdir
