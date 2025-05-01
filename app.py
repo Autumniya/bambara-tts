@@ -9,9 +9,6 @@ from celery_worker import generate_audio_task
 app = Flask(__name__)
 CORS(app)  # Allow cross-origin requests
 
-# Initialize TTS model
-tts = TTS(model_name="tts_models/bam/fairseq/vits").to("cpu")
-
 @app.route('/')
 def home():
     return render_template('index.html')
