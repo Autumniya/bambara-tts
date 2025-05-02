@@ -11,6 +11,9 @@ WORKDIR /app
 # Copy project files
 COPY . /app
 
+# Make the start script executable
+RUN chmod +x /app/start.sh
+
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
