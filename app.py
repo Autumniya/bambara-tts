@@ -79,21 +79,31 @@ def check_status(task_id):
         return jsonify({"status": "pending"}), 202
     elif result.state == 'SUCCESS':
         file_path = result.result
-
-        @after_this_request
-        def remove_file(response):
-            try:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-            except Exception as e:
-                app.logger.error(f"Error deleting temp file: {e}")
-            return response
-
-        return send_file(file_path, mimetype="audio/wav", as_attachment=True, download_name="output.wav")
+        filename = os.path.basename(file_path)
+        return jsonify({"status": "ready", "url": f"/get-audio/{filename}"}), 200
     elif result.state == 'FAILURE':
         return jsonify({"status": "failed", "error": str(result.info)}), 500
 
     return jsonify({"status": result.state}), 200
+
+@app.route('/get-audio/<filename>', methods=['GET'])
+def get_audio(filename):
+    file_path = os.path.join(gettempdir(), filename)
+
+    @after_this_request
+    def remove_file(response):
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            app.logger.error(f"Error deleting temp file: {e}")
+        return response
+
+    if os.path.exists(file_path):
+        return send_file(file_path, mimetype="audio/wav")
+    else:
+        return jsonify({"error": "File not found"}), 404
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
