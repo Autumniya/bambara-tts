@@ -3,10 +3,21 @@ from flask_cors import CORS
 import os
 import uuid
 from tempfile import gettempdir
-from celery_worker import generate_audio_task
+from celery import Celery
 
 app = Flask(__name__)
 CORS(app)  # Allow cross-origin requests
+app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
+app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
+
+celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'], backend=app.config['CELERY_RESULT_BACKEND'])
+celery.conf.update(app.config)
+
+@celery.task
+def generate_tts(text):
+    filename = os.path.join(gettempdir(), f"{uuid.uuid4()}.wav")
+    tts_model.tts_to_file(text, file_path=filename)
+    return filename
 
 @app.route('/')
 def home():
@@ -42,7 +53,7 @@ def generate_audio_async():
     if not text:
         return jsonify({"error": "No valid text found"}), 400
 
-    task = generate_audio_task.delay(text)
+    task = generate_tts.delay(text)
     return jsonify({"task_id": task.id}), 202
 
 
