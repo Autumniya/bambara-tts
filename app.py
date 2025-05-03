@@ -16,6 +16,9 @@ app.config['CELERY_RESULT_BACKEND'] = 'redis://default:RZMtWYDySnhVgZSnSivZczIke
 celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'], backend=app.config['CELERY_RESULT_BACKEND'])
 celery.conf.update(app.config)
 
+# Only load model once
+tts_model = TTS(model_name="tts_models/bam/fairseq/vits").to("cpu")
+
 @celery.task
 def generate_tts(text):
     filename = os.path.join(gettempdir(), f"{uuid.uuid4()}.wav")
