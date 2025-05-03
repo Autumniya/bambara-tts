@@ -7,8 +7,11 @@ from celery import Celery
 
 app = Flask(__name__)
 CORS(app)  # Allow cross-origin requests
-app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
-app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
+
+# Read broker and result backend from environment variables (or set default)
+
+app.config['CELERY_BROKER_URL'] = 'redis://default:RZMtWYDySnhVgZSnSivZczIkeIpFCyDr@redis.railway.internal:6379'
+app.config['CELERY_RESULT_BACKEND'] = 'redis://default:RZMtWYDySnhVgZSnSivZczIkeIpFCyDr@redis.railway.internal:6379'
 
 celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'], backend=app.config['CELERY_RESULT_BACKEND'])
 celery.conf.update(app.config)
