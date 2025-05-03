@@ -95,7 +95,7 @@ form.addEventListener("submit", async (e) => {
     const { task_id } = await response.json();
 
     let elapsed = 0;
-    const maxWait = 30000;
+    const maxWait = 600000;
 
     const pollInterval = setInterval(async () => {
      elapsed += 2000;
