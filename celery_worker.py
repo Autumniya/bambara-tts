@@ -14,7 +14,14 @@ tts_model = TTS(model_name="tts_models/bam/fairseq/vits").to("cpu")
 
 @celery_app.task
 def generate_audio_task(text):
+    print(f"📥 [TASK STARTED] Text: {text}")
     unique_id = uuid.uuid4()
     output_path = os.path.join(gettempdir(), f"output_{unique_id}.wav")
-    tts_model.tts_to_file(text, file_path=output_path)
-    return output_path
+    print(f"🔊 [SAVING TO] {output_path}")
+    try:
+        tts_model.tts_to_file(text, file_path=output_path)
+        print(f"✅ [TASK DONE] File saved: {output_path}")
+        return output_path
+    except Exception as e:
+        print(f"❌ [TASK FAILED] Error: {e}")
+        raise e
