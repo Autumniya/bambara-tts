@@ -4,6 +4,7 @@ import os
 import uuid
 from tempfile import gettempdir
 from celery import Celery
+from TTS.api import TTS
 
 app = Flask(__name__)
 CORS(app)  # Allow cross-origin requests
