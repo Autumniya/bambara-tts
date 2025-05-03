@@ -1,5 +1,5 @@
 #!/bin/bash
 # Start Celery in background
-celery -A app.celery worker --loglevel=info &
+celery -A app.celery worker --loglevel=info --concurrency=1 &
 # Start Gunicorn
-exec gunicorn --workers=1 --preload app:app
+exec gunicorn app:app --workers=1 --threads=1
