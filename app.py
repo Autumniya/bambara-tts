@@ -16,8 +16,14 @@ celery.conf.update(app.config)
 @celery.task
 def generate_tts(text):
     filename = os.path.join(gettempdir(), f"{uuid.uuid4()}.wav")
-    tts_model.tts_to_file(text, file_path=filename)
-    return filename
+    print(f"🔊 [SAVING TO] {filename}")
+    try:
+        tts_model.tts_to_file(text, file_path=filename)
+        print(f"✅ [TASK DONE] File saved: {filename}")
+        return filename
+    except Exception as e:
+        print(f"❌ [TASK FAILED] Error: {e}")
+        raise e
 
 @app.route('/')
 def home():
