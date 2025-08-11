@@ -22,7 +22,6 @@ mutagen==1.47.0
 flask>=2.0.1
 flask-cors
 requests==2.31.0
-TTS==0.19.1
 celery>=5.2.0
 redis
 # deps for inference
@@ -53,5 +52,5 @@ bnnumerizer
 bnunicodenormalizer
 #deps for tortoise
 einops>=0.6.0
-transformers>=4.33.0
+transformers>=4.40.0
 maliba-ai==1.1.1b0
