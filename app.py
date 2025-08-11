@@ -89,17 +89,13 @@ def check_status(task_id):
 def get_audio(filename):
     file_path = os.path.join(gettempdir(), filename)
 
-    @after_this_request
-    def remove_file(response):
-        try:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        except Exception as e:
-            app.logger.error(f"Error deleting temp file: {e}")
-        return response
-
     if os.path.exists(file_path):
-        return send_file(file_path, mimetype="audio/wav")
+        return send_file(
+            file_path, 
+            mimetype="audio/wav", 
+            as_attachment=True,
+            download_name=filename
+        )
     else:
         return jsonify({"error": "File not found"}), 404
 
