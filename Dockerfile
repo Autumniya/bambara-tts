@@ -1,22 +1,29 @@
-FROM python:3.10-slim
+FROM pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
 
-# Install OS-level dependencies
-RUN apt-get update && apt-get install -y \
-    libsndfile1 ffmpeg espeak-ng \
- && rm -rf /var/lib/apt/lists/*
+# System deps for audio + optional OGG transcode
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsndfile1 ffmpeg espeak-ng ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
 
-# Copy project files
+# Copy only requirements first for better layer caching
+COPY requirements.txt /app/requirements.txt
+
+# IMPORTANT: base image already has CUDA-enabled torch/torchaudio.
+# Do NOT reinstall CPU wheels; keep requirements minimal.
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy the rest of your app
 COPY . /app
 
-# Make the start script executable
+# Cache + audio dirs on a mounted volume
+ENV HF_HOME=/data/hfcache
+ENV AUDIO_DIR=/data/audio
+
+# Make sure start script is executable
 RUN chmod +x /app/start.sh
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Run the app with Gunicorn
+EXPOSE 8000
 CMD ["./start.sh"]
