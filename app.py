@@ -1,77 +1,98 @@
-# app.py
-import os, hashlib
+from fastapi import FastAPI, Body, Response
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from pathlib import Path
-from flask import Flask, request, jsonify, send_file, render_template
-from flask_cors import CORS
-from celery import Celery
+import hashlib, io, zipfile, os
 
-app = Flask(__name__)
-CORS(app)
+from maliba_ai.tts.inference import BambaraTTSInference
+from maliba_ai.config.settings import Speakers
 
-# ---- Celery (shared broker/backend) ----
-app.config['CELERY_BROKER_URL'] = 'redis://default:RZMtWYDySnhVgZSnSivZczIkeIpFCyDr@redis.railway.internal:6379'
-app.config['CELERY_RESULT_BACKEND'] = 'redis://default:RZMtWYDySnhVgZSnSivZczIkeIpFCyDr@redis.railway.internal:6379'
+app = FastAPI(title="Bambara TTS")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+)
 
-celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'],
-                backend=app.config['CELERY_RESULT_BACKEND'])
-celery.conf.update(app.config)
+AUDIO_DIR = Path("data/audio"); AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+SPEAKERS = ["Adama","Moussa","Bourama","Modibo","Seydou","Amadou","Bakary","Ngolo","Ibrahima","Amara"]  # HF card
+SPEAKER_DEFAULT = os.getenv("SPEAKER_DEFAULT", "Bourama")
 
-# ---- Storage ----
-PERSIST_DIR = os.environ.get("AUDIO_DIR", "/data/audio")
-Path(PERSIST_DIR).mkdir(parents=True, exist_ok=True)
+# Load once (uses GPU automatically when available)
+tts = BambaraTTSInference()
 
-@app.route('/')
-def home():
-    return render_template('index.html')
+def _speaker_enum(name: str):
+    return getattr(Speakers, name)
 
-def extract_text(data):
-    if isinstance(data, dict):
-        for k in ["title","vocabaudio","meaning","name"]:
-            v = data.get(k)
-            if isinstance(v, str) and v.strip():
-                return v.strip()
-        for v in data.values():
-            t = extract_text(v)
-            if t: return t
-    elif isinstance(data, list):
-        for it in data:
-            t = extract_text(it); 
-            if t: return t
-    return None
+def _wav_path(text: str, speaker: str):
+    key = hashlib.sha1(f"{speaker}|{text}".encode("utf-8")).hexdigest()
+    return AUDIO_DIR / f"{key}.wav"
 
-@app.route('/generate-audio', methods=['POST'])
-def generate_audio_async():
-    payload = request.get_json(silent=True) or {}
-    text = extract_text(payload)
-    speaker = payload.get("speaker")  # optional
-    if not text:
-        return jsonify({"error": "No valid text found"}), 400
-    # Call the worker task by **name** (avoids importing the GPU module here)
-    task = celery.send_task('tasks_gpu.generate_tts_task', args=[text, speaker])
-    return jsonify({"task_id": task.id}), 202
+def synth_to_wav(text: str, speaker: str):
+    out = _wav_path(text, speaker)
+    if not out.exists():
+        tts.generate_speech(text=text, speaker_id=_speaker_enum(speaker), output_path=str(out))
+    return out
 
-@app.route('/check-status/<task_id>', methods=['GET'])
-def check_status(task_id):
-    from celery.result import AsyncResult
-    r = AsyncResult(task_id, app=celery)
-    if r.state == 'PENDING':
-        return jsonify({"status":"pending"}), 202
-    if r.state == 'SUCCESS':
-        return jsonify({"status":"ready", "url": f"/get-audio/{r.result}"}), 200
-    if r.state == 'FAILURE':
-        return jsonify({"status":"failed","error": str(r.info)}), 500
-    return jsonify({"status": r.state}), 200
+@app.get("/ping")
+def ping():
+    return {"status":"ok"}
 
-@app.route('/get-audio/<path:filename>', methods=['GET'])
-def get_audio(filename):
-    file_path = os.path.join(PERSIST_DIR, filename)
-    if not os.path.exists(file_path):
-        return jsonify({"error":"File not found"}), 404
-    resp = send_file(file_path, mimetype="audio/wav",
-                     as_attachment=True, download_name=filename, conditional=True)
-    resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-    return resp
+@app.get("/", response_class=HTMLResponse)
+def ui():
+    return f"""
+<!doctype html><meta charset="utf-8" />
+<h2>Bambara TTS (MALIBA)</h2>
+<form onsubmit="event.preventDefault(); go()">
+  <label>Speaker:</label>
+  <select id="sp">{''.join(f'<option>{s}</option>' for s in SPEAKERS)}</select>
+  <br/><textarea id="tx" rows="3" cols="60" placeholder="Aw ni ce. I ka kɛnɛ wa?"></textarea>
+  <br/><button>Speak</button>
+</form>
+<audio id="au" controls></audio>
+<script>
+async function go(){{
+  const r = await fetch('/synthesize', {{
+    method:'POST',
+    headers:{{'Content-Type':'application/json'}},
+    body: JSON.stringify({{ text: document.getElementById('tx').value, speaker: document.getElementById('sp').value }})
+  }});
+  const blob = await r.blob();
+  document.getElementById('au').src = URL.createObjectURL(blob);
+}}
+</script>
+"""
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+class SynthesizeIn(BaseModel):
+    text: str
+    speaker: str | None = None
+    return_path: bool = False
+
+@app.post("/synthesize")
+def synth(req: SynthesizeIn):
+    speaker = req.speaker or SPEAKER_DEFAULT
+    path = synth_to_wav(req.text.strip(), speaker)
+    if req.return_path:
+        return {"url": f"/audio/{path.name}", "speaker": speaker}
+    return FileResponse(path, media_type="audio/wav", filename=path.name)
+
+class BatchIn(BaseModel):
+    items: dict[str, str]   # {"key":"bambara text", ...}
+    speaker: str | None = None
+
+@app.post("/batch.zip")
+def batch(req: BatchIn):
+    speaker = req.speaker or SPEAKER_DEFAULT
+    mem = io.BytesIO()
+    with zipfile.ZipFile(mem, mode="w", compression=zipfile.ZIP_DEFLATED) as z:
+        for k, bm in req.items.items():
+            p = synth_to_wav(bm.strip(), speaker)
+            z.write(p, arcname=f"{k}.wav")
+    mem.seek(0)
+    headers = {"Content-Disposition": 'attachment; filename="bambara_tts.zip"'}
+    return Response(mem.read(), media_type="application/zip", headers=headers)
+
+@app.get("/audio/{fname}")
+def serve_cached(fname: str):
+    path = AUDIO_DIR / fname
+    return FileResponse(path, media_type="audio/wav")
