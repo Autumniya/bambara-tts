@@ -1,7 +1,7 @@
 # app.py
 import os, hashlib
 from pathlib import Path
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, render_template
 from flask_cors import CORS
 from celery import Celery
 
@@ -9,8 +9,9 @@ app = Flask(__name__)
 CORS(app)
 
 # ---- Celery (shared broker/backend) ----
-app.config['CELERY_BROKER_URL'] = os.environ['CELERY_BROKER_URL']
-app.config['CELERY_RESULT_BACKEND'] = os.environ['CELERY_RESULT_BACKEND']
+app.config['CELERY_BROKER_URL'] = 'redis://default:RZMtWYDySnhVgZSnSivZczIkeIpFCyDr@redis.railway.internal:6379'
+app.config['CELERY_RESULT_BACKEND'] = 'redis://default:RZMtWYDySnhVgZSnSivZczIkeIpFCyDr@redis.railway.internal:6379'
+
 celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'],
                 backend=app.config['CELERY_RESULT_BACKEND'])
 celery.conf.update(app.config)
@@ -18,6 +19,10 @@ celery.conf.update(app.config)
 # ---- Storage ----
 PERSIST_DIR = os.environ.get("AUDIO_DIR", "/data/audio")
 Path(PERSIST_DIR).mkdir(parents=True, exist_ok=True)
+
+@app.route('/')
+def home():
+    return render_template('index.html')
 
 def extract_text(data):
     if isinstance(data, dict):
