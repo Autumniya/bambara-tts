@@ -54,3 +54,4 @@ bnunicodenormalizer
 #deps for tortoise
 einops>=0.6.0
 transformers>=4.33.0
+maliba-ai==1.1.1b0
