@@ -31,7 +31,7 @@ def _wav_path(text: str, speaker: str):
 def synth_to_wav(text: str, speaker: str):
     out = _wav_path(text, speaker)
     if not out.exists():
-        tts.generate_speech(text=text, speaker_id=_speaker_enum(speaker), output_path=str(out))
+        tts.generate_speech(text=text, speaker_id=_speaker_enum(speaker), output_filename=str(out))
     return out
 
 @app.get("/ping")
