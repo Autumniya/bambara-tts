@@ -1,9 +1,18 @@
-fastapi
-uvicorn[standard]
+# App + API
+fastapi>=0.111,<1
+uvicorn[standard]>=0.30
+
+# Your TTS stack
 maliba-ai==1.1.1b0
-huggingface_hub
-hf_transfer
-sentencepiece
-protobuf
-soundfile
-pydantic
+huggingface_hub>=0.24
+hf_transfer>=0.1.6
+sentencepiece>=0.2
+protobuf>=4.25
+soundfile>=0.12
+pydantic>=2.7,<3
+
+# Safer model loading (prefer safetensors)
+safetensors>=0.4
+
+# (Torch, torchvision, torchaudio, xformers are installed separately to
+# match your CUDA and avoid resolver conflicts.)
