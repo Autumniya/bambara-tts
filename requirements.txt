@@ -14,4 +14,4 @@ pydantic>=2.7,<3
 safetensors>=0.4
 
 # (Torch, torchvision, torchaudio, xformers are installed separately to
-# match your CUDA and avoid resolver conflicts.)
+# match your CUDA and avoid resolver conflicts
