@@ -1,32 +1,23 @@
-FROM python:3.10-slim
+FROM pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     HF_HUB_ENABLE_HF_TRANSFER=1 \
-    SPEAKER_DEFAULT=Bourama \
-    HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH
+    SPEAKER_DEFAULT=Bourama
 
-RUN useradd -m -u 1000 user && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg libsndfile1 && \
-    rm -rf /var/lib/apt/lists/*
+WORKDIR /app
 
-USER user
-WORKDIR $HOME/app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libsndfile1 \
+ && rm -rf /var/lib/apt/lists/*
 
-COPY --chown=user requirements.txt .
-
+COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir \
-      torch==2.7.1 \
-      torchvision==0.22.1 \
-      torchaudio==2.7.1 \
-      --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt
 
-COPY --chown=user app ./app
-RUN mkdir -p data/audio
+COPY app ./app
+RUN mkdir -p /app/data/audio
 
 EXPOSE 8000
 
